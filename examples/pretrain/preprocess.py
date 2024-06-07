@@ -60,10 +60,6 @@ def create_wiki_data(tokenizer_name: str,
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     target_length = max_seq_length - tokenizer.num_special_tokens_to_add(pair=False)
 
-
-    def row_to_batch(row):
-        return [row]
-
     def wiki_tokenize_function(examples):
         sentences = []
         for sents in examples['sentences']:
