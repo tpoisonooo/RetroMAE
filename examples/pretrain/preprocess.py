@@ -93,7 +93,7 @@ def create_wiki_data(tokenizer_name: str,
         block = flat_list = list(itertools.chain(*blocks))
         return {'token_ids': block}
 
-    wiki = load_dataset("wikipedia", "20200501.en", split="train")
+    wiki = load_dataset("wikipedia", "20220301.en", split="train")
     # wiki = load_dataset("wikipedia", "20220301.simple", split="train")
     wiki = wiki.map(sentence_wiki, num_proc=8, remove_columns=["title", "text"])
     tokenized_wiki = wiki.map(wiki_tokenize_function, num_proc=64, batched=True, remove_columns=["sentences"])
