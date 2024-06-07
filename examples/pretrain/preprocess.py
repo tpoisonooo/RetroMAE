@@ -97,8 +97,6 @@ def create_wiki_data(tokenizer_name: str,
     wiki = load_dataset("wikipedia", "20220301.simple", split="train")
     wiki = wiki.map(sentence_wiki, num_proc=8, remove_columns=["title", "text"])
     tokenized_wiki = wiki.map(wiki_tokenize_function, num_proc=64, batched=True, remove_columns=["sentences"])
-    # wiki_pad_each_line(tokenized_wiki)
-    # processed_wiki = tokenized_wiki.map(wiki_pad_each_line, num_proc=8, batched=True, remove_columns=["input_ids"], batch_size=32)
     processed_wiki = tokenized_wiki.map(wiki_pad_each_line, num_proc=64, remove_columns=["input_ids", "id", "url"], batched=False)
 
     return processed_wiki
@@ -156,8 +154,6 @@ if __name__ == '__main__':
         print('download and preprocess wiki and bookcorpus:')
         wiki = create_wiki_data(args.tokenizer_name, args.max_seq_length, args.short_seq_prob)
         book = create_book_data(args.tokenizer_name, args.max_seq_length, args.short_seq_prob)
-        import pdb
-        pdb.set_trace()
         dataset = concatenate_datasets([book, wiki])
         dataset.save_to_disk(args.output_dir)
     elif args.data == 'msmarco_passage':
