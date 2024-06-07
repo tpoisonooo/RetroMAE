@@ -4,7 +4,7 @@ from pathlib import Path
 
 from datasets import load_dataset, concatenate_datasets
 from transformers import AutoTokenizer
-
+import itertools
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -45,8 +45,8 @@ def create_book_data(tokenizer_name: str,
         return {'token_ids': blocks}
 
     bookcorpus = load_dataset('bookcorpus', split='train')
-    tokenized_bookcorpus = bookcorpus.map(book_tokenize_function, num_proc=8, remove_columns=["text"], batched=True)
-    processed_bookcorpus = tokenized_bookcorpus.map(book_pad_each_line, num_proc=8, batched=True,
+    tokenized_bookcorpus = bookcorpus.map(book_tokenize_function, num_proc=64, remove_columns=["text"], batched=True)
+    processed_bookcorpus = tokenized_bookcorpus.map(book_pad_each_line, num_proc=64, batched=True,
                                                     remove_columns=["input_ids"])
     return processed_bookcorpus
 
@@ -59,6 +59,10 @@ def create_wiki_data(tokenizer_name: str,
 
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     target_length = max_seq_length - tokenizer.num_special_tokens_to_add(pair=False)
+
+
+    def row_to_batch(row):
+        return [row]
 
     def wiki_tokenize_function(examples):
         sentences = []
@@ -74,24 +78,28 @@ def create_wiki_data(tokenizer_name: str,
 
     def wiki_pad_each_line(examples):
         blocks = []
-        for sents in examples['input_ids']:
+        for sent in examples['input_ids']:
             curr_block = []
             curr_tgt_len = target_length if random.random() > short_seq_prob else random.randint(3, target_length)
-            for sent in sents:
-                if len(curr_block) >= curr_tgt_len:
-                    blocks.append(curr_block)
-                    curr_block = []
-                    curr_tgt_len = target_length if random.random() > short_seq_prob \
-                        else random.randint(3, target_length)
-                curr_block.extend(sent)
+            if len(curr_block) >= curr_tgt_len:
+                blocks.append(curr_block)
+                curr_block = []
+                curr_tgt_len = target_length if random.random() > short_seq_prob \
+                    else random.randint(3, target_length)
+            curr_block.extend(sent)
             if len(curr_block) > 0:
                 blocks.append(curr_block)
-        return {'token_ids': blocks}
+        
+        block = flat_list = list(itertools.chain(*blocks))
+        return {'token_ids': block}
 
-    wiki = load_dataset("wikipedia", "20200501.en", split="train")
+    # wiki = load_dataset("wikipedia", "20200501.en", split="train")
+    wiki = load_dataset("wikipedia", "20220301.simple", split="train")
     wiki = wiki.map(sentence_wiki, num_proc=8, remove_columns=["title", "text"])
-    tokenized_wiki = wiki.map(wiki_tokenize_function, num_proc=8, batched=True, remove_columns=["sentences"])
-    processed_wiki = tokenized_wiki.map(wiki_pad_each_line, num_proc=8, batched=True, remove_columns=["input_ids"])
+    tokenized_wiki = wiki.map(wiki_tokenize_function, num_proc=64, batched=True, remove_columns=["sentences"])
+    # wiki_pad_each_line(tokenized_wiki)
+    # processed_wiki = tokenized_wiki.map(wiki_pad_each_line, num_proc=8, batched=True, remove_columns=["input_ids"], batch_size=32)
+    processed_wiki = tokenized_wiki.map(wiki_pad_each_line, num_proc=64, remove_columns=["input_ids", "id", "url"], batched=False)
 
     return processed_wiki
 
@@ -148,6 +156,8 @@ if __name__ == '__main__':
         print('download and preprocess wiki and bookcorpus:')
         wiki = create_wiki_data(args.tokenizer_name, args.max_seq_length, args.short_seq_prob)
         book = create_book_data(args.tokenizer_name, args.max_seq_length, args.short_seq_prob)
+        import pdb
+        pdb.set_trace()
         dataset = concatenate_datasets([book, wiki])
         dataset.save_to_disk(args.output_dir)
     elif args.data == 'msmarco_passage':
