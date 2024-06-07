@@ -86,7 +86,7 @@ def create_wiki_data(tokenizer_name: str,
             if len(curr_block) > 0:
                 blocks.append(curr_block)
         
-        block = flat_list = list(itertools.chain(*blocks))
+        block = list(itertools.chain(*blocks))
         return {'token_ids': block}
 
     wiki = load_dataset("wikipedia", "20220301.en", split="train")
